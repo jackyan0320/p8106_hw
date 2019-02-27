@@ -1,0 +1,11 @@
+---
+title: "P8106_hw1_xy2395"
+author: "Jack Yan"
+date: "2/27/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
