@@ -5,7 +5,179 @@ date: "2/27/2019"
 output: github_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=T, message=F}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(glmnet)
+library(pls)
+set.seed(123123)
+```
+## Introduction
+
+In this homework, 4 regression methods (i.e. least squares, ridge, lasso, and PCR) are implemented to predict the solubility of compounds using their chemical structures. The test errors of the 4 models are compared. 
+
+## Data Entry
+```{r message=F}
+train_df <- 
+  read_csv("./data/solubility_train.csv") %>% 
+  janitor::clean_names()
+
+test_df <- 
+  read_csv("./data/solubility_test.csv") %>% 
+  janitor::clean_names()
+
 ```
 
+
+## Model Implementation
+
+#### Least Squares
+
+```{r warning = F}
+fit_ls = lm(solubility ~ ., data = train_df)
+
+test_df_ls =
+  modelr::add_predictions(test_df, fit_ls) %>% 
+  mutate(error = solubility - pred)
+mse_ls = mean(test_df_ls$error^2)
+mse_ls
+```
+
+The test mean square error for the least square model is `r mse_ls`.
+
+#### Ridge Regression
+
+```{r}
+x = model.matrix(solubility~., train_df)[,-1]
+y = train_df %>% pull(solubility)
+ridge.mod <- glmnet(x, y, alpha = 0, lambda = exp(seq(-2, 0, length = 300)))
+coef(ridge.mod) %>% dim()
+```
+
+```{r}
+cv.ridge <- cv.glmnet(x, y, 
+                      alpha = 0, 
+                      nfolds = 10,
+                      lambda = exp(seq(-4, 0, length = 300)), 
+                      type.measure = "mse")
+
+plot(cv.ridge)
+```
+
+```{r}
+best_lambda_ridge <- cv.ridge$lambda.min
+best_lambda_ridge
+```
+
+The lambda corresponding to the lowest training MSE is `r best_lambda_ridge`.
+
+```{r}
+new_x = model.matrix(solubility~., test_df)[,-1]
+test_df_ridge = 
+  test_df %>% 
+  mutate(pred = predict(ridge.mod, s = best_lambda_ridge, newx = new_x, type = "response")) %>% 
+  mutate(error = pred - solubility)
+
+mse_ridge = mean(test_df_ridge$error^2)
+mse_ridge
+```
+
+The test mean square error for the ridge model is `r mse_ridge`.
+
+#### Lasso Regression
+
+```{r}
+x = model.matrix(solubility~., train_df)[,-1]
+y = train_df %>% pull(solubility)
+lasso_mod <- glmnet(x, y, alpha = 1, lambda = exp(seq(-4, 0, length = 300)))
+```
+
+```{r}
+cv_lasso <- cv.glmnet(x, y, 
+                      alpha = 1, 
+                      nfolds = 10,
+                      lambda = exp(seq(-6, -3, length = 300)), 
+                      type.measure = "mse")
+
+plot(cv_lasso)
+```
+
+```{r}
+best_lambda_lasso <- cv_lasso$lambda.min
+best_lambda_lasso
+```
+
+The lambda corresponding to the lowest training MSE is `r best_lambda_lasso`.
+
+```{r}
+new_x = model.matrix(solubility~., test_df)[,-1]
+test_df_lasso = 
+  test_df %>% 
+  mutate(pred = predict(lasso_mod, s = best_lambda_lasso, newx = new_x, type = "response")) %>% 
+  mutate(error = pred - solubility)
+
+mse_lasso = mean(test_df_lasso$error^2)
+mse_lasso
+```
+
+The test mean square error for the lasso model is `r mse_lasso`.
+
+```{r}
+n_nonzero_coef = 
+  glmnet(x, y, alpha = 1, lambda = best_lambda_lasso) %>% 
+  coef %>% 
+  as.matrix() %>% 
+  as.tibble() %>% 
+  filter(s0 != 0) %>% 
+  nrow()
+
+n_nonzero_coef
+```
+
+There are `r n_nonzero_coef` non-zero coefficient estimates if we use the 'best' lambda `r best_lambda_lasso`.
+
+
+#### Principal Component Regression
+
+```{r}
+pcr_mod <- pcr(solubility~., 
+               data = train_df,
+               scale = TRUE, 
+               validation = "CV")
+# find the number of components with the lowest MSEP
+pcr_mod %>% summary
+pcr_mod %>% 
+  MSEP %>% # extract the object VALIDATION: RMSEP
+  .[[1]] %>% # extract the array from the object
+  .[2,,] %>% # extract the CV MESP(numeric) from the array
+  as.list %>% as.tibble() %>% # coerce to tibble
+  gather(key = 'ncomp', value = 'msep', `(Intercept)`: `228 comps`) %>% 
+  arrange(msep) # sort by MSEP to find the best M
+```
+
+The number of M is 166.
+
+```{r}
+pcr_pred = predict(pcr_mod, test_df, ncomp = 166)
+
+mse_pcr = mean((pcr_pred - test_df$solubility)^2)
+mse_pcr
+```
+
+The test MSE for the PCR model is `r mse_pcr`, with M = 166.
+
+## Discussion
+
+The MSE's for the 4 models are summarized below.
+
+| Model         | Test MSE       |
+|--------------:|---------------:|
+|Least Squares  |  `r mse_ls`    |
+|Ridge          |`r mse_ridge`   |
+|Lasso          |`r mse_lasso`   |
+|PCR            | `r mse_pcr`    |
+
+With this data set, the Ridge regression has the lowest test MSE, and as expected, the ordinary Least squares regression has the highest test MSE. The Ridge, Lasso and PCR regression use regularization or dimension reduction techniques to decrease the variability in coefficients, so they perform better than the ordinary least squares regression. 
+
+We use cross-validation extensively throughout the homework. It is a powerful tool in selecting tuning parameters as well as measuring model predictability.
