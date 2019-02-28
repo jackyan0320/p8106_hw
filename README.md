@@ -1,5 +1,13 @@
 # p8106_hw
 
-### R packages used for homework 1
+### Homework 1
+
+#### R packages used
 
 tidyverse, caret, glmnet, pls
+
+#### Models implemented
+
+Ordinary least squares, Ridge, The lasso, and Principal Components Regression
+
+
