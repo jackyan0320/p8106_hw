@@ -2,7 +2,7 @@
 title: "P8106_hw1_xy2395"
 author: "Jack Yan"
 date: "2/27/2019"
-output: github_document
+output: pdf_document
 ---
 
 ```{r setup, include=T, message=F}
@@ -146,26 +146,30 @@ pcr_mod <- pcr(solubility~.,
                scale = TRUE, 
                validation = "CV")
 # find the number of components with the lowest MSEP
-pcr_mod %>% summary
-pcr_mod %>% 
+class(pcr_mod)
+msep_sort = 
+  pcr_mod %>% 
   MSEP %>% # extract the object VALIDATION: RMSEP
   .[[1]] %>% # extract the array from the object
   .[2,,] %>% # extract the CV MESP(numeric) from the array
   as.list %>% as.tibble() %>% # coerce to tibble
   gather(key = 'ncomp', value = 'msep', `(Intercept)`: `228 comps`) %>% 
   arrange(msep) # sort by MSEP to find the best M
+msep_sort
 ```
 
-The number of M is 166.
+
+The number of M is `r msep_sort[1,] %>% pull(ncomp)`.
 
 ```{r}
-pcr_pred = predict(pcr_mod, test_df, ncomp = 166)
+ncomp = msep_sort[1,] %>% pull(ncomp) %>% str_remove(' comps') %>% as.numeric()
+pcr_pred = predict(pcr_mod, test_df, ncomp = ncomp)
 
 mse_pcr = mean((pcr_pred - test_df$solubility)^2)
 mse_pcr
 ```
 
-The test MSE for the PCR model is `r mse_pcr`, with M = 166.
+The test MSE for the PCR model is `r mse_pcr`, with M = `r ncomp`.
 
 ## Discussion
 
