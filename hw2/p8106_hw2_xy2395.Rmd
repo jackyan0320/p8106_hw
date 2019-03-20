@@ -1,0 +1,24 @@
+---
+title: "P8106_hw2_xy2395"
+author: "Jack Yan"
+date: "3/19/2019"
+output: html_document
+---
+
+```{r setup, include=T, message=F}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+set.seed(123123)
+```
+## Introduction
+
+In this homework, 4 regression methods (i.e. least squares, ridge, lasso, and PCR) are implemented to predict the solubility of compounds using their chemical structures. The test errors of the 4 models are compared. 
+
+## Data Entry
+```{r message=F}
+concrete_df <- 
+  read_csv("concrete.csv") 
+  janitor::clean_names()
+
+```
