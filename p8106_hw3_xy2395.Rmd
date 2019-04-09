@@ -1,0 +1,29 @@
+---
+title: "P8106_hw3_xy2395"
+author: "Jack Yan"
+date: "4/9/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ISLR) # for data
+library(janitor)
+```
+
+## Data Import 
+```{r}
+data(Weekly)
+weekly <-
+  Weekly %>% 
+  as.tibble() %>% 
+  clean_names() %>% 
+  select(-today)
+```
+
+## (a) Graphical Summary
+```{r}
+
+```
+

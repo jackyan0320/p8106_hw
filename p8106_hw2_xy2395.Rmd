@@ -1,0 +1,163 @@
+---
+title: "P8106_hw2_xy2395"
+author: "Jack Yan"
+date: "3/19/2019"
+output: html_document
+---
+
+```{r setup, include=T, message=F}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(mgcv)
+set.seed(123123)
+```
+
+## Data Entry
+```{r message=F}
+concrete <- 
+  read_csv("./data/concrete.csv") %>% 
+  janitor::clean_names()
+```
+
+### (a) Scatter Plots
+```{r}
+# matrix of predictors
+x <- model.matrix(compressive_strength~., concrete)[,-1]
+# vector of response
+y <- concrete$compressive_strength
+```
+
+```{r}
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col <- rgb(.2, .4, .2, .5) 
+theme1$plot.symbol$pch <- 16
+theme1$plot.line$col <- rgb(.8, .1, .1, 1) 
+theme1$plot.line$lwd <- 2
+theme1$strip.background$col <- rgb(.0, .2, .6, .2) 
+trellis.par.set(theme1)
+
+featurePlot(x, y, plot = "scatter", labels = c("","Y"),
+            type = c("p"), 
+            layout = c(4, 2)
+            )
+```
+
+### (b) Polynomial Regression
+
+```{r}
+fit1 <- lm(compressive_strength ~ water, data = concrete)
+fit2 <- lm(compressive_strength ~ poly(water,2), data = concrete) 
+fit3 <- lm(compressive_strength ~ poly(water,3), data = concrete) 
+fit4 <- lm(compressive_strength ~ poly(water,4), data = concrete) 
+
+# Cross validation
+trRows <- createDataPartition(y = concrete$compressive_strength,
+                              times = 10,
+                              p = .50,
+                              list = FALSE)
+
+ctrl1 <- trainControl(method = "cv", number = 10)
+ctrl5 <- trainControl(method = "repeatedcv", repeats = 5, number = 10) 
+
+lmFit1 <- train(compressive_strength ~ water, 
+                data = concrete, 
+                method = "lm", 
+                trControl = ctrl1)
+lmFit2 <- train(compressive_strength ~ poly(water, 2), 
+                data = concrete, 
+                method = "lm", 
+                trControl = ctrl1)
+lmFit3 <- train(compressive_strength ~ poly(water, 3), 
+                data = concrete, 
+                method = "lm", 
+                trControl = ctrl1)
+lmFit4 <- train(compressive_strength ~ poly(water, 4), 
+                data = concrete, 
+                method = "lm", 
+                trControl = ctrl1)
+
+resamp <- resamples(list(lm1 = lmFit1, lm2 = lmFit2, lm3 = lmFit3, lm4 = lmFit4))
+summary(resamp)
+
+anova(fit1, fit2, fit3, fit4)
+```
+
+The cross validation shows that when d = 4, the RMSE is the lowest, so we choose the df = 4 model. The ANOVA also indicates that the 4 degree model is the best. So in this case, cross validation and ANOVA both suggest that df = 4 is the best.
+
+```{r}
+p <- 
+  ggplot(data = concrete, aes(x = water, y = compressive_strength)) + 
+  geom_point(color = rgb(0.9, .4, .2, .5))
+
+pred_df = tibble(
+  water = concrete$water,
+  pred1 = fit1$fit,
+  pred2 = fit2$fit,
+  pred3 = fit3$fit,
+  pred4 = fit4$fit
+)
+
+p +
+  geom_line(aes(x = water, y = pred1, color = '1'), data = pred_df) +
+  geom_line(aes(x = water, y = pred2, color = '2'), data = pred_df) +
+  geom_line(aes(x = water, y = pred3, color = '3'), data = pred_df) +
+  geom_line(aes(x = water, y = pred4, color = '4'), data = pred_df) +
+  scale_color_discrete(name = "DF")
+```
+
+The plot shows different polynomial fits to the data.
+
+### (c) Smoothing Spline
+```{r}
+fit.ss <- smooth.spline(x = concrete$water, y = concrete$compressive_strength)
+fit.ss$df
+```
+
+The degrees of freedom obtained by cross validation is `r fit.ss$df`.
+
+```{r}
+waterlims <- range(concrete$water)
+water.grid <- seq(from = waterlims[1],to = waterlims[2], length.out = 2000)
+
+fit.ss1 <- smooth.spline(x = concrete$water, y = concrete$compressive_strength, df=10)
+fit.ss2 <- smooth.spline(x = concrete$water, y = concrete$compressive_strength, df=100)
+
+pred.ss <- predict(fit.ss,
+                   x = water.grid)
+pred.ss1 <- predict(fit.ss1,
+                   x = water.grid)
+pred.ss2 <- predict(fit.ss2,
+                   x = water.grid)
+pred.ss.df <- data.frame(pred = pred.ss$y,
+                         pred1 = pred.ss1$y,
+                         pred2 = pred.ss2$y,
+                         water = water.grid)
+
+p + 
+geom_line(aes(x = water, y = pred, color = '68.9'), data = pred.ss.df) + 
+geom_line(aes(x = water, y = pred1, color = '10'), data = pred.ss.df) +
+geom_line(aes(x = water, y = pred2, color = '100'), data = pred.ss.df) +
+  scale_color_discrete(name = "DF") +
+  theme_bw()
+```
+
+As the degrees of freedom increses, the curve becomes more flexible and wiggly.
+
+### (d) GAM
+
+```{r}
+fit.gam = gam(compressive_strength ~ 
+                s(cement) + s(blast_furnace_slag) + s(fly_ash) + s(water) + s(superplasticizer) +
+                s(coarse_aggregate) + s(fine_aggregate) + s(age),  data = concrete)
+summary(fit.gam)
+```
+
+All terms are significant, so we include all terms in the model.
+
+```{r}
+par(mfrow = c(2, 4))
+plot(fit.gam)
+```
+
+The relationship between `cement` and the response is approximately linear. All the other terms have a nonlinear relation with the response.
