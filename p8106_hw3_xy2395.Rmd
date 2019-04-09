@@ -7,9 +7,12 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
+library(tidyverse) # data manipulation
 library(ISLR) # for data
-library(janitor)
+library(janitor) # clean names 
+library(AppliedPredictiveModeling) # better plots
+library(caret) # modeling
+library(corrplot)
 ```
 
 ## Data Import 
@@ -19,10 +22,28 @@ weekly <-
   Weekly %>% 
   as.tibble() %>% 
   clean_names() %>% 
-  select(-today)
+  select(-today, - year)
 ```
 
 ## (a) Graphical Summary
+```{r}
+# Distribution of response classes with regard to each variable
+transparentTheme(trans = .4)
+featurePlot(x = weekly[,-8], 
+            y = weekly$direction,
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")),
+            plot = "density", pch = "|", 
+            auto.key = list(columns = 2))
+
+# Correlation plot of variables 
+par(cex = 0.7)
+corrplot(cor(weekly[,-7]), tl.srt = 45, order = 'hclust', type = 'upper')
+```
+
+The distribution of response classes (up and down) is highly overlapping with regard to each predictor, so it is infeasible to predict the response based on any single feature. As the correlation shows, the pairwise correlation among predictors appears to be trivial. 
+
+## (b) Logistic Regression
 ```{r}
 
 ```
