@@ -163,30 +163,30 @@ model.knn <- train(x = train_df[,1:2],
                    y = train_df$direction,
                    method = "knn",
                    preProcess = c("center", "scale"), 
-                   tuneGrid = data.frame(k = seq(1,104,by=2)),  
+                   tuneGrid = data.frame(k = seq(1,50,by=1)),  
                    trControl = ctrl)
 model.knn$bestTune
 ggplot(model.knn)
 pred_knn = predict.train(model.knn, newdata = test_df, type = 'prob')
-roc_knn <- roc(test_df$direction, pred_qda$posterior[,2],
+roc_knn <- roc(test_df$direction, pred_knn[,2],
                levels = c("Down", "Up"))
 plot.roc(roc_knn, legacy.axes = TRUE, print.auc = TRUE)
 ```
 
-The AUC for KNN is 0.529.
+The AUC for KNN is `r round(roc_knn$auc[[1]], 3)`.
 
 **Discussion:**
 
 Using `lag1` and `lag2` as predictors, the AUC for the models built above are summarized below.
 
-|model       |        AUC| 
-|:-----------|----------:|
-|logistic    |      0.554| 
-|LDA         |      0.557| 
-|QDA         |      0.529|
-|KNN         |      0.529| 
+|model       |                            AUC| 
+|:-----------|------------------------------:|
+|logistic    |                          0.554| 
+|LDA         |                          0.557| 
+|QDA         |                          0.529|
+|KNN         | `r round(roc_knn$auc[[1]], 3)`| 
 
-If we train the models using data from 1990 to 2008 and predict `direction` from 2009 to 2010, LDA has the largest AUC, thus generates the best prediction. QDA and KNN have the lowest AUC. However, the AUC for the above 4 models are similar and are only slightly greater than 0.5, indicating that the response `direction` is hard to be correctly classified with the given predictors.
+If we train the models using data from 1990 to 2008 and predict `direction` from 2009 to 2010, LDA has the largest AUC, thus generates the best prediction. KNN has the lowest AUC. However, the AUC for the above 4 models are similar and are only slightly greater than 0.5, indicating that the response `direction` is hard to be correctly classified with the given predictors.
 
 
 
