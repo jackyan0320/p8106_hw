@@ -1,0 +1,16 @@
+---
+title: "P8106_hw4_xy2395"
+author: "Jack Yan"
+date: "4/16/2019"
+output: github_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse) # data manipulation
+
+```
+
+
+
+
