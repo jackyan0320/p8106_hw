@@ -136,12 +136,119 @@ Here we compare the cross-validation RMSE of random forest and boosting. I will 
 Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations. Use set.seed() for reproducible results.
 ```{r, message=FALSE}
 data(OJ)
-oj = as.tibble(OJ)
+
+oj <-
+  as.tibble(OJ) %>% 
+  mutate(Store7 = recode(Store7, '1' = 'Yes', '2' = 'No'),
+         Store7 = as.numeric(Store7))
 
 #split the data into training and test sets
 set.seed(1)
-train_df = sample_n(oj, 800) 
-test_df = anti_join(oj, train_df)
+rowTrain <- createDataPartition(y = oj$Purchase,
+                                p = 799/1070,
+                                list = FALSE)
+train_df = oj[rowTrain,]
+test_df = oj[-rowTrain,]
 ```
 
-### (a)
+### (a) Classification Tree
+```{r}
+ctrl <- trainControl(method = "repeatedcv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+
+set.seed(1)
+rpart.fit <- train(Purchase~., train_df, 
+                   method = "rpart",
+                   tuneGrid = data.frame(cp = exp(seq(-20,-2, len = 50))),
+                   trControl = ctrl,
+                   metric = "ROC")
+rpart.fit$bestTune
+ggplot(rpart.fit, highlight = TRUE)
+rpart.plot(rpart.fit$finalModel)
+```
+
+```{r}
+test_df$probCH = predict(rpart.fit$finalModel, newdata = test_df, type = "prob")[,1]
+test_df$pred = if_else(test_df$probCH > 0.5, 'CH', 'MM')
+
+# Classification error rate
+1 - mean(test_df$pred == test_df$Purchase)
+```
+
+Test classification error rate is `r 1 - mean(test_df$pred == test_df$Purchase)`.
+
+
+### (b) Random Forests
+```{r, eval = F}
+rf.grid <- expand.grid(mtry = seq(4,12, by=1),
+                       splitrule = "gini",
+                       min.node.size = seq(20,55, by=3))
+set.seed(1)
+rf.fit <- train(Purchase~., train_df,
+                method = "ranger",
+                tuneGrid = rf.grid,
+                metric = "ROC",
+                trControl = ctrl)
+```
+
+```{r, echo=F}
+# saveRDS(rf.fit, 'hw4_rf_fit.rds')
+rf.fit = readRDS('hw4_rf_fit.rds')
+```
+
+```{r }
+rf.fit$bestTune
+ggplot(rf.fit, highlight = TRUE)
+
+rf.pred <- predict(rf.fit, newdata = test_df, type = "prob")[,1]
+pred = if_else(rf.pred > 0.5, 'CH', 'MM')
+# Classification error rate
+1 - mean(pred == test_df$Purchase)
+```
+
+### (b) Boosting
+#### Binomial loss
+```{r}
+gbmB.grid <- expand.grid(n.trees = c(3000,4000,5000),
+                        interaction.depth = 3:6,
+                        shrinkage = c(0.0005,0.0010,0.0015),
+                        n.minobsinnode = 1)
+set.seed(1)
+# Binomial loss function
+gbmB.fit <- train(Purchase~., train_df, 
+                 tuneGrid = gbmB.grid,
+                 trControl = ctrl,
+                 method = "gbm",
+                 distribution = "bernoulli",
+                 metric = "ROC",
+                 verbose = FALSE)
+
+ggplot(gbmB.fit, highlight = TRUE)
+
+gbmB.pred <- predict(gbmB.fit, newdata = dat[-rowTrain,], type = "prob")[,1]
+```
+
+#### AdaBoost
+
+```{r}
+gbmA.grid <- expand.grid(n.trees = c(2000,3000,4000),
+                        interaction.depth = 1:6,
+                        shrinkage = c(0.001,0.003,0.005),
+                        n.minobsinnode = 1)
+set.seed(1)
+# Adaboost loss function
+gbmA.fit <- train(Purchase~., train_df,
+                 tuneGrid = gbmA.grid,
+                 trControl = ctrl,
+                 method = "gbm",
+                 distribution = "adaboost",
+                 metric = "ROC",
+                 verbose = FALSE)
+
+ggplot(gbmA.fit, highlight = TRUE)
+
+gbmA.pred <- predict(gbmA.fit, newdata = dat[-rowTrain,], type = "prob")[,1]
+```
+
+
