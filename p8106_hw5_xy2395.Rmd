@@ -1,0 +1,61 @@
+---
+title: "P8106_hw5_xy2395"
+author: "Jack Yan"
+date: "4/22/2019"
+output: github_document
+---
+
+```{r setup, include=TRUE, message=F, warning=F}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse) # data manipulation
+library(ISLR) # data source
+library(caret) # model tuning
+
+# parallel processing with caret
+library(doParallel)
+cluster <- makePSOCKcluster(10)
+registerDoParallel(cluster)
+```
+
+Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations. Use set.seed() for reproducible results.
+```{r, message=FALSE}
+data(OJ)
+
+oj <-
+  as.tibble(OJ) %>% 
+  mutate(Store7 = recode(Store7, '1' = 'Yes', '0' = 'No'),
+         Store7 = as.numeric(Store7))
+
+#split the data into training and test sets
+set.seed(1)
+rowTrain <- createDataPartition(y = oj$Purchase,
+                                p = 799/1070,
+                                list = FALSE)
+train_df = oj[rowTrain,]
+test_df = oj[-rowTrain,]
+dim(train_df)
+```
+
+### (a)
+
+Fit a support vector classifier (linear kernel) to the training data with `Purchase` as the response and the other variables as predictors. What are the training and test error rates?
+```{r}
+
+```
+
+### (b)
+
+Fit a support vector machine with a radial kernel to the training data. What are the training and test error rates?
+```{r}
+
+```
+
+### (c)
+
+Which approach seems to give a better result on this data?
+
+
+```{r, echo=F}
+stopCluster(cluster)
+```
+
