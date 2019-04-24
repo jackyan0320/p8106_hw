@@ -2,11 +2,10 @@
 title: "P8106_hw5_xy2395"
 author: "Jack Yan"
 date: "4/22/2019"
-output: github_document
+output: html_document
 ---
 
 ```{r setup, include=TRUE, message=F, warning=F}
-knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse) # data manipulation
 library(ISLR) # data source
 library(caret) # model tuning
@@ -16,6 +15,8 @@ library(doParallel)
 cluster <- makePSOCKcluster(10)
 registerDoParallel(cluster)
 ```
+
+### Data manipulation
 
 Create a training set containing a random sample of 800 observations, and a test set containing the remaining observations. Use set.seed() for reproducible results.
 ```{r, message=FALSE}
@@ -33,27 +34,108 @@ rowTrain <- createDataPartition(y = oj$Purchase,
                                 list = FALSE)
 train_df = oj[rowTrain,]
 test_df = oj[-rowTrain,]
+
 dim(train_df)
+dim(test_df)
 ```
 
-### (a)
+### (a) Linear kernel
 
 Fit a support vector classifier (linear kernel) to the training data with `Purchase` as the response and the other variables as predictors. What are the training and test error rates?
 ```{r}
-
+ctrl <- trainControl(method = "repeatedcv", repeats = 5)
 ```
 
-### (b)
+```{r, eval=F}
+set.seed(1)
+svml.fit <- train(Purchase  ~ ., 
+                  data = train_df, 
+                  method = "svmLinear2",
+                  preProcess = c("center", "scale"),
+                  tuneGrid = data.frame(cost = exp(seq(-3,-1,len = 40))),
+                  trControl = ctrl)
+```
+
+```{r, echo=F}
+# saveRDS(svml.fit, 'hw5_svml_fit.rds')
+svml.fit = readRDS('hw5_svml_fit.rds')
+```
+
+```{r}
+ggplot(svml.fit, highlight = TRUE)
+# Training set error rate
+mean(predict(svml.fit) != train_df$Purchase)
+# Test set error rate
+mean(predict(svml.fit, newdata = test_df) != test_df$Purchase)
+```
+
+For linear kernel, the training error rate is `r mean(predict(svml.fit) != train_df$Purchase)` and test error rate is `r mean(predict(svml.fit, newdata = test_df) != test_df$Purchase)`.
+
+### (b) Radial kernel
 
 Fit a support vector machine with a radial kernel to the training data. What are the training and test error rates?
-```{r}
 
+```{r, eval=F}
+svmr.grid <- expand.grid(C = exp(seq(-4,0,len=10)),
+                         sigma = exp(seq(-5,-3,len=20)))
+set.seed(1)             
+svmr.fit <- train(Purchase~., 
+                  data = train_df,
+                  method = "svmRadial",
+                  preProcess = c("center", "scale"),
+                  tuneGrid = svmr.grid,
+                  trControl = ctrl)
 ```
 
-### (c)
+```{r, echo=F}
+# saveRDS(svmr.fit, 'hw5_svmr_fit.rds')
+svmr.fit = readRDS('hw5_svmr_fit.rds')
+```
+
+```{r, warning=F}
+ggplot(svmr.fit, highlight = TRUE)
+
+# Training set error rate
+mean(predict(svmr.fit) != train_df$Purchase)
+# Test set error rate
+mean(predict(svmr.fit, newdata = test_df) != test_df$Purchase)
+```
+
+For radial kernel, the training error rate is `r mean(predict(svmr.fit) != train_df$Purchase)` and test error rate is `r mean(predict(svmr.fit, newdata = test_df) != test_df$Purchase)`.
+
+### (c) Comparison
 
 Which approach seems to give a better result on this data?
 
+Radial kernel seems better.
+```{r }
+resamp <- resamples(list(svmr = svmr.fit, svml = svml.fit))
+bwplot(resamp)
+```
+
+The plot shows Kappa and Accuracy of both kernels from cross-validation based on training data. The radial kernel seem to fit the training data better because it has higher distribution of Kappa and Accuracy.
+
+```{r}
+tibble(kernel = c('linear', 'radial'),
+       training_error = c(mean(predict(svml.fit) != train_df$Purchase),
+                          mean(predict(svmr.fit) != train_df$Purchase)),
+       test_error = c(mean(predict(svml.fit, newdata = test_df) != test_df$Purchase),
+                      mean(predict(svmr.fit, newdata = test_df) != test_df$Purchase)))
+```
+
+Above is a summary of the training and test error rate for the linear kernel and radial kernel. The radial kernal has lower training error rate, indicating that it fits the training data better. More importantly, the radial kernal also has lower test error, showing its better prediction accuracy than the linear kernel.
+
+```{r}
+# linear kernel
+confusionMatrix(data = predict(svml.fit, newdata = test_df), 
+                reference = test_df$Purchase)
+
+# radial kernel
+confusionMatrix(data = predict(svmr.fit, newdata = test_df), 
+                reference = test_df$Purchase)
+```
+
+We also show the confusion matrix for both kernels based on their prediction on the test data. The radial kernel also has higher sensitivity, specificity, PPV, NPV and Kappa compared with the linear kernel. In conclusion, the **radial** kernel seems to give a better result on the data.
 
 ```{r, echo=F}
 stopCluster(cluster)
