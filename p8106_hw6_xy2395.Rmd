@@ -1,0 +1,11 @@
+---
+title: "P8106_hw6_xy2395"
+author: "Jack Yan"
+date: "4/30/2019"
+output: html_document
+---
+
+```{r setup, include=TRUE, message=F, warning=F}
+library(tidyverse) # data manipulation
+library(caret) # model tuning
+```
